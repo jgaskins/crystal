@@ -279,6 +279,17 @@ describe "buffered" do
     expect_raises(Channel::ClosedError) { ch.send 123 }
   end
 
+  it "can time out" do
+    ch = Channel(Int32).new(5, receive_timeout: 10.milliseconds)
+    expect_raises(Channel::ReceiveTimeoutError) { ch.receive }
+  end
+
+  it "does not timeout if we receive a value before the receive timeout is reached" do
+    ch = Channel(Int32).new(5, receive_timeout: 1.minute)
+    spawn { ch.send 42 }
+    ch.receive
+  end
+
   it "can receive? when closed" do
     ch = Channel(Int32).new(10)
     ch.close

@@ -67,10 +67,16 @@ class Channel(T)
     end
   end
 
-  class ClosedError < Exception
+  class Error < Exception
+  end
+
+  class ClosedError < Error
     def initialize(msg = "Channel is closed")
       super(msg)
     end
+  end
+
+  class ReceiveTimeoutError < Error
   end
 
   enum DeliveryState
@@ -79,7 +85,7 @@ class Channel(T)
     Closed
   end
 
-  def initialize(@capacity = 0)
+  def initialize(@capacity = 0, @receive_timeout : Time::Span? = nil)
     @closed = false
     @senders = Deque({Fiber, T, SelectContext(Nil)?}).new
     @receivers = Deque({Fiber, Pointer(T), Pointer(DeliveryState), SelectContext(T)?}).new
@@ -175,7 +181,7 @@ class Channel(T)
         when DeliveryState::Closed
           yield
         else
-          raise "BUG: Fiber was awaken without channel delivery state set"
+          raise ReceiveTimeoutError.new("#{inspect} timed out after waiting for #{@receive_timeout.inspect}")
         end
       end
     end
@@ -193,6 +199,14 @@ class Channel(T)
       sender[0].enqueue
       sender[1]
     else
+      if timeout = @receive_timeout
+        receive_fiber = Fiber.current
+        spawn do
+          sleep timeout.not_nil!
+          receive_fiber.resume
+        end
+      end
+
       yield
     end
   end
