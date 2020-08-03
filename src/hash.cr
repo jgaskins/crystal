@@ -464,8 +464,13 @@ class Hash(K, V)
     nil
   end
 
+  # Entries that are not of the Hash's key type are guaranteed not to exist
+  protected def find_entry(key) : Nil
+    nil
+  end
+
   # Finds an entry with the given key.
-  protected def find_entry(key) : Entry(K, V)?
+  protected def find_entry(key : K) : Entry(K, V)?
     # Empty hash table so there's no way it's there
     if @indices_size_pow2 == 0
       return nil
